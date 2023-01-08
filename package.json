@@ -1,0 +1,19 @@
+{
+  "name": "chessstock",
+  "version": "1.0.0",
+  "description": "For chees",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/puppeteer": "^7.0.4",
+    "axios": "^1.2.2",
+    "express": "^4.18.2",
+    "get-image-colors": "^4.0.1",
+    "puppeteer": "^19.4.1"
+  }
+}
