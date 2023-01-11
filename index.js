@@ -81,7 +81,7 @@ async function getInitialFen(page, colour) {
         return 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
     } else {
         await startWaitingForMove(page)
-        return translateToFenString(await readLastMove(page, colour), colour)
+        return await readLastMove(page, colour)
     }
 }
 
@@ -89,8 +89,10 @@ async function getInitialFen(page, colour) {
  * @param {puppeteer.Page} page - Pagina puppeter
  * @param {string} colour - Cor do jogador
  */ 
-async function readLastMove(page, colour) {
-    let fen_field = colour == 'white' ? WHITE_FEN_START_FIELD : BLACK_FEN_START_FIELD
+async function readLastMove(page, colour, fen_field_origin = null) {
+    let fen_field = fen_field_origin != null ? fen_field_origin : colour == 'white' ? WHITE_FEN_START_FIELD : BLACK_FEN_START_FIELD
+    console.log(fen_field)
+    
     await page.waitForSelector('.highlight')
     
     let highlighted_fields = await page.$$('.highlight')
@@ -155,6 +157,98 @@ async function translateToFenString(fen_field, colour) {
     return final_fen
 }
 
+
+async function waitForMyMove(page, colour) {
+    if(colour == 'black'){
+        await page.waitForSelector('.white.node.selected')
+        return
+    } else {
+        await page.waitForSelector('.black.node.selected')
+        return
+    }
+}
+
+/**
+ * 
+ * @param {puppeteer.Page} page - Pagina puppeter
+ * @param {string} fen - Campo FEN
+ * @param {string} colour - Cor do jogador
+*/
+async function continueTheGame(page, fen_, my_colour) {
+    let fen = fen_
+
+    await waitForMyMove(page, my_colour)
+    console.log('Jogada do adversário...')
+    fen = await readLastMove(page, my_colour, fen)
+    console.log("NOVO CAMPO FEN:", fen)
+    let fen_string = await translateToFenString(fen, my_colour)
+    let url = `https://www.chessdb.cn/cdb.php?action=querybest&board=${fen_string}&json=true`
+    console.log("Nova url:", url)
+    let dados = await axios.get(url)
+    console.log(dados.data)
+
+    //continueTheGame(page, fen, my_colour)
+}
+
+function transformLetterInNumber(letter, colour){
+    switch (letter) {
+        case 'a':
+            return colour == 'black' ? 7 : 0
+            break;
+        case 'b':
+            return colour == 'black' ? 6 : 1
+            break;
+        case 'c':
+            return colour == 'black' ? 5 : 2
+            break;
+        case 'd':
+            return colour == 'black' ? 4 : 3
+            break;
+        case 'e':
+            return colour == 'black' ? 3 : 4
+            break;
+        case 'f':
+            return colour == 'black' ? 2 : 5
+            break;
+        case 'g':
+            return colour == 'black' ? 1 : 6
+            break;
+        case 'h':
+            return colour == 'black' ? 0 : 7
+            break;
+        default:
+            break;
+    }
+}
+
+
+/**
+ * 
+ * @param {string} move 
+ * @param {string} colour 
+ * @param {puppeteer.Page} page 
+ * @param {Array} fen
+ */
+async function makeTheMove(move, colour, page, fen){
+    let move_splited = move.split("")
+    let move_column_1 = transformLetterInNumber(move_splited[0], colour)
+    let move_column_2 = transformLetterInNumber(move_splited[2], colour)
+    let move_row_1 = colour == 'black' ? parseInt(move_splited[1]) - 1 : 8 - parseInt(move_splited[1]) 
+    let move_row_2 = colour == 'black' ? parseInt(move_splited[3]) - 1 : 8 - parseInt(move_splited[3]) 
+
+    fen[move_row_2][move_column_2] = fen[move_row_1][move_column_1]
+    fen[move_row_1][move_column_1] = ' '
+
+    let order = move_column_1 + 2 + '' + move_splited[1]
+    let class_to_find = '.square-'+order
+    await (await page.$$(class_to_find))[0].click()
+
+    let new_move = '.square-' + (move_column_2 + 2 + '' + move_splited[3])
+    await (await page.$$(new_move))[0].click()
+
+    return fen
+}
+
 async function main() {
     const browser = await puppeteer.launch({
         headless: false,
@@ -173,10 +267,14 @@ async function main() {
 
     let my_colour = await whoIam(page)
     let fen = await getInitialFen(page, my_colour)
-    let url = `https://www.chessdb.cn/cdb.php?action=querybest&board=${fen}&json=true`
+    let fen_string = await translateToFenString(fen, my_colour)
+    let url = `https://www.chessdb.cn/cdb.php?action=querybest&board=${fen_string}&json=true`
 
     let dados = await axios.get(url)
     console.log(dados.data)
+    
+    fen = await makeTheMove(dados.data.move || null, my_colour, page, fen)
+    await continueTheGame(page, fen, my_colour)
 }
 
 main()
