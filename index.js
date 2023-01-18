@@ -1,10 +1,40 @@
 const puppeteer = require('puppeteer');
 const axios = require('axios')
 const readline = require('readline');
+const stockfish = require("stockfish");
+const engine = stockfish();
 
+let global_state_waiting = false
 let colour_global = ''
 let castles = ['K', 'Q', 'k', 'q']
 let en_passant = '-'
+
+function delay(time) {
+    return new Promise(function(resolve) { 
+        setTimeout(resolve, time)
+    });
+}
+
+/**
+ * 
+ * @param {string} fen_string 
+ */
+async function callStockFish(fen_string){
+    global_state_waiting = true
+    engine.postMessage("uci");
+    engine.postMessage("ucinewgame");
+    engine.postMessage("position fen " + fen_string);
+    engine.postMessage("go depth 18");
+    return new Promise(resolve => {
+        engine.onmessage = function(msg) {
+            // only send response when it is a recommendation
+            if (typeof(msg == "string") && msg.match("bestmove")) {
+                global_state_waiting = false
+                resolve(msg)
+            }
+        }
+    })
+}
 
 function askQuestion(query) {
     const rl = readline.createInterface({
@@ -168,18 +198,13 @@ async function continueTheGame(page, my_colour, first = true, fen = []) {
             if(init == 'y') {
                 fen_ = await readLastMove(page, my_colour)
                 fen_string = matrixToFEN(fen_)
-                let url = `https://www.chessdb.cn/cdb.php?action=querybest&board=${fen_string}&json=true`
-                console.log(url)
-                let dados = await axios.get(url)
-                console.log("Melhor jogada:", dados.data)
+                await callStockFish(fen_string).then(console.log)
             } else {
                 process.exit()
             }
         } else {
             fen_ = await getInitialFen(page, my_colour)
-            let url = `https://www.chessdb.cn/cdb.php?action=querybest&board=${fen_}&json=true`
-            let dados = await axios.get(url)
-            console.log("Melhor jogada:", dados.data)
+            await callStockFish(fen_).then(console.log)
         }
     }
 
@@ -187,10 +212,7 @@ async function continueTheGame(page, my_colour, first = true, fen = []) {
     if(ans == 'y') {
         let fen_field = await readLastMove(page, my_colour, fen_)
         let fen_string = matrixToFEN(fen_field)
-        let url = `https://www.chessdb.cn/cdb.php?action=querybest&board=${fen_string}&json=true`
-        console.log("Validando formação:", url)
-        let dados = await axios.get(url)
-        console.log("Melhor jogada:", dados.data)
+        await callStockFish(fen_string).then(console.log)
         await continueTheGame(page, my_colour, false, fen_field)
     } else {
         process.exit()
