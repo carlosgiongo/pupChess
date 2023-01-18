@@ -2,6 +2,7 @@ const puppeteer = require('puppeteer');
 const axios = require('axios')
 const readline = require('readline');
 
+let colour_global = ''
 let castles = ['K', 'Q', 'k', 'q']
 let en_passant = '-'
 
@@ -37,23 +38,44 @@ async function startWaitingForMove(page) {
     await page.waitForXPath('/html/body/div[3]/div/vertical-move-list/div[1]/div[1]')
 }
 
+function invertArray(arr) {
+    for (let i = 0; i < 4; i++) {
+        let temp = arr[i];
+        arr[i] = arr[7-i];
+        arr[7-i] = temp;
+    }
+    return arr;
+}
 
 /**
- * @param {Array} fen_field - Campo FEN
- * @param {string} colour - Cor do jogador
+ * @param {Array} matrix - Campo FEN
 */
-async function translateToFenString(fen_field, colour) {
-    let correct_field = fen_field[0][1]
-    let fen_string = ''
-    for (let i = 0; i < correct_field.length; i++) {
-        let piece = correct_field[i]
-        if(piece == '') {
-            fen_string += '1'
-        } else {
-            fen_string += piece
-        }
-    } 
+function matrixToFEN(matrix_) {
+    let matrix = matrix_.map((arr) => {return invertArray(arr)})
+    matrix = invertArray(matrix)
 
+    let FEN = '';
+    for (let i = 0; i < 8; i++) {
+        let emptySquares = 0;
+        for (let j = 0; j < 8; j++) {
+            if (matrix[i][j] === '') {
+                emptySquares++;
+            } else {
+                if (emptySquares > 0) {
+                    FEN += emptySquares;
+                    emptySquares = 0;
+                }
+                FEN += matrix[i][j];
+            }
+        }
+        if (emptySquares > 0) {
+            FEN += emptySquares;
+        }
+        if (i < 7) {
+            FEN += '/';
+        }
+    }
+    return FEN + ' ' + colour_global + ' ' + castles.join('') + ' ' + en_passant + ' 0 1';
 }
 
 /**
@@ -145,8 +167,7 @@ async function continueTheGame(page, my_colour, first = true, fen = []) {
             let init = await askQuestion("Começamos como pretas... Posso ler a primeira jogada do meu oponente?")
             if(init == 'y') {
                 fen_ = await readLastMove(page, my_colour)
-                fen_string = await translateToFenString(fen_, my_colour)
-                console.log(fen_)
+                fen_string = matrixToFEN(fen_)
                 let url = `https://www.chessdb.cn/cdb.php?action=querybest&board=${fen_string}&json=true`
                 console.log(url)
                 let dados = await axios.get(url)
@@ -165,7 +186,7 @@ async function continueTheGame(page, my_colour, first = true, fen = []) {
     const ans = await askQuestion("Validar proxima jogada? ");
     if(ans == 'y') {
         let fen_field = await readLastMove(page, my_colour, fen_)
-        let fen_string = await translateToFenString(fen_field, my_colour)
+        let fen_string = matrixToFEN(fen_field)
         let url = `https://www.chessdb.cn/cdb.php?action=querybest&board=${fen_string}&json=true`
         console.log("Validando formação:", url)
         let dados = await axios.get(url)
@@ -190,6 +211,7 @@ async function main() {
 
     await page.goto('https://www.chess.com/play/computer');
     let my_colour = await askQuestion("Qual a sua cor ('b' or 'w')? ");
+    colour_global = my_colour
     await continueTheGame(page, my_colour)
 }
 
