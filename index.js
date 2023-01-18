@@ -1,26 +1,17 @@
 const puppeteer = require('puppeteer');
-const axios = require('axios')
 const readline = require('readline');
 const stockfish = require("stockfish");
 const engine = stockfish();
 
-let global_state_waiting = false
 let colour_global = ''
 let castles = ['K', 'Q', 'k', 'q']
 let en_passant = '-'
-
-function delay(time) {
-    return new Promise(function(resolve) { 
-        setTimeout(resolve, time)
-    });
-}
 
 /**
  * 
  * @param {string} fen_string 
  */
 async function callStockFish(fen_string){
-    global_state_waiting = true
     engine.postMessage("uci");
     engine.postMessage("ucinewgame");
     engine.postMessage("position fen " + fen_string);
@@ -29,7 +20,6 @@ async function callStockFish(fen_string){
         engine.onmessage = function(msg) {
             // only send response when it is a recommendation
             if (typeof(msg == "string") && msg.match("bestmove")) {
-                global_state_waiting = false
                 resolve(msg)
             }
         }
