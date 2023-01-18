@@ -26,11 +26,15 @@ async function callStockFish(fen_string){
     })
 }
 
-function askQuestion(query) {
+function askQuestion(query, first = false) {
     const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout,
     });
+
+    if(!first){
+        rl.line = 'y'   
+    }
 
     return new Promise(resolve => rl.question(query, ans => {
         rl.close();
@@ -183,7 +187,7 @@ async function continueTheGame(page, my_colour_ = null, first = true, fen = []) 
     let my_colour = my_colour_;
 
     if(first){
-        my_colour = await askQuestion("Qual a sua cor ('b' or 'w')? ");
+        my_colour = await askQuestion("Qual a sua cor ('b' or 'w')? ", true);
         colour_global = my_colour
         if(my_colour == 'b') {
             let init = await askQuestion("Começamos como pretas... Posso ler a primeira jogada do meu oponente?")
