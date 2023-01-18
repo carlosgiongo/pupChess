@@ -141,9 +141,8 @@ async function getAllPiecesPositions(page){
 
 /**
  * @param {puppeteer.Page} page - Pagina puppeter
- * @param {string} colour - Cor do jogador
 */
-async function readLastMove(page, colour){
+async function readLastMove(page){
     let fen = [
         ['', '', '', '', '', '', '', ''],
         ['', '', '', '', '', '', '', ''],
@@ -179,10 +178,13 @@ async function readLastMove(page, colour){
  * @param {string} fen - Campo FEN
  * @param {string} colour - Cor do jogador
 */
-async function continueTheGame(page, my_colour, first = true, fen = []) {
+async function continueTheGame(page, my_colour_ = null, first = true, fen = []) {
     let fen_ = fen
+    let my_colour = my_colour_;
 
     if(first){
+        my_colour = await askQuestion("Qual a sua cor ('b' or 'w')? ");
+        colour_global = my_colour
         if(my_colour == 'b') {
             let init = await askQuestion("Começamos como pretas... Posso ler a primeira jogada do meu oponente?")
             if(init == 'y') {
@@ -198,14 +200,21 @@ async function continueTheGame(page, my_colour, first = true, fen = []) {
         }
     }
 
-    const ans = await askQuestion("Validar proxima jogada? ");
+    let ans;
+    do{
+        ans = await askQuestion("Validar proxima jogada? ");
+    } while (ans != 'y' && ans != 'exit' && ans != 'end')
+
     if(ans == 'y') {
         let fen_field = await readLastMove(page, my_colour, fen_)
         let fen_string = matrixToFEN(fen_field)
         await callStockFish(fen_string).then(console.log)
         await continueTheGame(page, my_colour, false, fen_field)
-    } else {
+    } else if (ans == 'exit') {
         process.exit()
+    } else {
+        //end (Recomeçar o jogo)
+        await continueTheGame(page, null, true, [])
     }
 }
 
@@ -222,9 +231,7 @@ async function main() {
     });
 
     await page.goto('https://www.chess.com/play/computer');
-    let my_colour = await askQuestion("Qual a sua cor ('b' or 'w')? ");
-    colour_global = my_colour
-    await continueTheGame(page, my_colour)
+    await continueTheGame(page)
 }
 
 main()
