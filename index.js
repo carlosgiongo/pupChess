@@ -1,9 +1,12 @@
+require('dotenv').config()
 const puppeteer = require('puppeteer');
 const readline = require('readline');
 const stockfish = require("stockfish");
 const engine = stockfish();
 
 let colour_global = ''
+let white_king = 4
+let black_king = 4
 let castles = ['K', 'Q', 'k', 'q']
 let en_passant = '-'
 
@@ -15,7 +18,7 @@ async function callStockFish(fen_string){
     engine.postMessage("uci");
     engine.postMessage("ucinewgame");
     engine.postMessage("position fen " + fen_string);
-    engine.postMessage("go depth 18");
+    engine.postMessage("go depth 13");
     return new Promise(resolve => {
         engine.onmessage = function(msg) {
             // only send response when it is a recommendation
@@ -99,7 +102,7 @@ function matrixToFEN(matrix_) {
             FEN += '/';
         }
     }
-    return FEN + ' ' + colour_global + ' ' + castles.join('') + ' ' + en_passant + ' 0 1';
+    return FEN + ' ' + colour_global + ' ' + (castles.length >= 2 ? castles.join('') : "-") + ' ' + en_passant + ' 0 1';
 }
 
 /**
@@ -234,7 +237,15 @@ async function main() {
         deviceScaleFactor: 1,
     });
 
-    await page.goto('https://www.chess.com/play/computer');
+    if(process.env.CHESS_ACCOUNT && process.env.CHESS_PASS) {
+        await page.goto('https://www.chess.com/login_and_go?returnUrl=%2Fplay%2Fcomputer');
+        await page.waitForSelector('#username');
+        await page.type('#username', process.env.CHESS_ACCOUNT, {delay: 100});
+        await page.type('#password', process.env.CHESS_PASS, {delay: 100});
+        await page.click('#login', {delay: 100});
+    }
+
+    await page.goto('https://www.chess.com/play/computer'); //https://www.chess.com/play/online
     await continueTheGame(page)
 }
 
