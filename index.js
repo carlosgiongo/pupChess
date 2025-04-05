@@ -239,9 +239,9 @@ async function main() {
 
     if(process.env.CHESS_ACCOUNT && process.env.CHESS_PASS) {
         await page.goto('https://www.chess.com/login_and_go?returnUrl=%2Fplay%2Fcomputer');
-        await page.waitForSelector('#username');
-        await page.type('#username', process.env.CHESS_ACCOUNT, {delay: 100});
-        await page.type('#password', process.env.CHESS_PASS, {delay: 100});
+        await page.waitForSelector('#login-username');
+        await page.type('#login-username', process.env.CHESS_ACCOUNT, {delay: 100});
+        await page.type('#login-password', process.env.CHESS_PASS, {delay: 100});
         await page.click('#login', {delay: 100});
     }
 
